@@ -1,0 +1,228 @@
+---
+# Local HIL test-rig CI/CD lab.
+#   make up            -> core stack
+#   make up-extras     -> core + sqlite-web, alertmanager, cadvisor
+# See README.md for URLs and the demo walkthrough.
+
+x-rig-common: &rig-common
+  build:
+    context: ./rig-sim
+  restart: unless-stopped
+  networks: [lab]
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 10s
+
+services:
+  # ---------------------------------------------------------------- Jenkins
+  jenkins:
+    build:
+      context: ./jenkins
+    container_name: jenkins
+    restart: unless-stopped
+    environment:
+      JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
+      CASC_JENKINS_CONFIG: /var/jenkins_home/casc
+      JAVA_OPTS: >-
+        -Djenkins.install.runSetupWizard=false
+        -Dhudson.model.DirectoryBrowserSupport.CSP=
+      RIG_API_URL: http://rig-api:8000
+    ports:
+      - "${JENKINS_PORT:-8080}:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./jenkins/casc:/var/jenkins_home/casc:ro
+      - .:/repo:ro                      # pipeline job clones file:///repo
+    networks: [lab]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/login"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  # Build agent "near the rigs" – JDK 17 + Maven + python3. Self-registers via JNLP.
+  jenkins-agent:
+    build:
+      context: ./jenkins/agent
+    container_name: jenkins-agent
+    restart: unless-stopped
+    depends_on:
+      jenkins:
+        condition: service_healthy
+    environment:
+      JENKINS_URL: http://jenkins:8080
+      JENKINS_AGENT_NAME: lab-agent
+      JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin}
+      RIG_API_URL: http://rig-api:8000
+    volumes:
+      - agent_workdir:/home/jenkins/agent
+      - maven_repo:/home/jenkins/.m2
+      - .:/repo:ro
+    networks: [lab]
+
+  # --------------------------------------------------------- Rig broker API
+  rig-api:
+    build:
+      context: ./rig-api
+      target: runtime
+    container_name: rig-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: sqlite:////data/rigs.db
+      RIGS_INVENTORY: /app/rigs.yaml
+      POLL_INTERVAL_S: ${POLL_INTERVAL_S:-5}
+      RESERVATION_DEFAULT_TTL_S: ${RESERVATION_DEFAULT_TTL_S:-1800}
+      QUARANTINE_AFTER_FAILURES: ${QUARANTINE_AFTER_FAILURES:-3}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${RIG_API_PORT:-8000}:8000"
+    volumes:
+      - rig_api_data:/data
+      - ./rig-api/rigs.yaml:/app/rigs.yaml:ro
+    networks: [lab]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ------------------------------------------------- Simulated test rig boards
+  rig-vienna-01:
+    <<: *rig-common
+    container_name: rig-vienna-01
+    environment:
+      RIG_ID: rig-vienna-01
+      RIG_LAB: vienna
+      FAIL_RATE: ${VIENNA_FAIL_RATE:-0.02}
+      FLASH_SECONDS: ${FLASH_SECONDS:-8}
+    ports:
+      - "8101:8080"
+
+  rig-vienna-02:
+    <<: *rig-common
+    container_name: rig-vienna-02
+    environment:
+      RIG_ID: rig-vienna-02
+      RIG_LAB: vienna
+      FAIL_RATE: ${VIENNA_FAIL_RATE:-0.02}
+      FLASH_SECONDS: ${FLASH_SECONDS:-8}
+    ports:
+      - "8102:8080"
+
+  rig-munich-01:
+    <<: *rig-common
+    container_name: rig-munich-01
+    environment:
+      RIG_ID: rig-munich-01
+      RIG_LAB: munich
+      FAIL_RATE: ${MUNICH_FAIL_RATE:-0.15}   # flakier on purpose – exercises alerts/quarantine
+      FLASH_SECONDS: ${FLASH_SECONDS:-8}
+    ports:
+      - "8103:8080"
+
+  # ------------------------------------------------------------- Monitoring
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    networks: [lab]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/rig-fleet.json
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks: [lab]
+
+  # ------------------------------------------------------ Optional extras
+  sqlite-web:
+    image: coleifer/sqlite-web:latest
+    container_name: sqlite-web
+    profiles: [extras]
+    restart: unless-stopped
+    command: ["sqlite_web", "--host", "0.0.0.0", "--port", "8080", "--read-only", "/data/rigs.db"]
+    ports:
+      - "${SQLITE_WEB_PORT:-8081}:8080"
+    volumes:
+      - rig_api_data:/data:ro
+    networks: [lab]
+    depends_on:
+      rig-api:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    profiles: [extras]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+    networks: [lab]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    profiles: [extras]
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "${CADVISOR_PORT:-8082}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [lab]
+
+networks:
+  lab:
+    name: lab
+
+volumes:
+  jenkins_home:
+  agent_workdir:
+  maven_repo:
+  rig_api_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,29 @@
+# Minimal Alertmanager config (extras profile). Alerts are grouped per lab and logged to a
+# webhook stub; swap the receiver for Teams/Slack/e-mail/PagerDuty in a real deployment.
+global:
+  resolve_timeout: 2m
+
+route:
+  receiver: lab-log
+  group_by: [alertname, lab]
+  group_wait: 15s
+  group_interval: 1m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity = critical]
+      receiver: lab-log
+      repeat_interval: 30m
+
+receivers:
+  - name: lab-log
+    webhook_configs:
+      # Alertmanager POSTs here; nothing listens in the lab, so the UI at :9093 is the place to look.
+      # Point it at e.g. http://rig-api:8000/alerts if you add an endpoint that opens tickets.
+      - url: http://alert-sink.invalid/webhook
+        send_resolved: true
+
+inhibit_rules:
+  # If the rig is down there is no point paging about it failing/hot as well.
+  - source_matchers: [alertname = RigDown]
+    target_matchers: [alertname =~ "RigFailing|RigOverTemperature|RigUnreachableByBroker"]
+    equal: [rig]

@@ -1,0 +1,16 @@
+# Rig inventory – the source of truth for which boards exist and how to reach them.
+# host/port are Docker service names on the "lab" network; in a real lab these are
+# the boards' management IPs behind the site VPN.
+rigs:
+  - id: rig-vienna-01
+    lab: vienna
+    host: rig-vienna-01
+    port: 8080
+  - id: rig-vienna-02
+    lab: vienna
+    host: rig-vienna-02
+    port: 8080
+  - id: rig-munich-01
+    lab: munich
+    host: rig-munich-01
+    port: 8080

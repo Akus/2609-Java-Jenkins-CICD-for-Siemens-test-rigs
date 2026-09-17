@@ -1,0 +1,10 @@
+rigs:
+  - id: rig-vienna-01
+    lab: vienna
+    host: rig-vienna-01
+  - id: rig-vienna-02
+    lab: vienna
+    host: rig-vienna-02
+  - id: rig-munich-01
+    lab: munich
+    host: rig-munich-01

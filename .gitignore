@@ -1,0 +1,26 @@
+.env
+
+# Java
+target/
+*.class
+*.jar
+!**/lib/*.jar
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+rigs.db*
+
+# Pipeline outputs
+artifacts/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

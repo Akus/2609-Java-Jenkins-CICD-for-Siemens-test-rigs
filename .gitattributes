@@ -1,0 +1,20 @@
+# Everything that runs inside Linux containers must stay LF even on Windows checkouts
+# (core.autocrlf=true would otherwise turn shell scripts into "bad interpreter: ^M").
+* text=auto
+*.sh            text eol=lf
+*.py            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.toml          text eol=lf
+*.ini           text eol=lf
+*.mako          text eol=lf
+*.json          text eol=lf
+*.java          text eol=lf
+*.xml           text eol=lf
+*.md            text eol=lf
+Makefile        text eol=lf
+Dockerfile      text eol=lf
+Jenkinsfile     text eol=lf
+*.Jenkinsfile   text eol=lf
+.env.example    text eol=lf
+plugins.txt     text eol=lf

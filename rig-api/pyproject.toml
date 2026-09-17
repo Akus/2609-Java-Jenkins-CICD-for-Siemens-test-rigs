@@ -1,0 +1,38 @@
+[project]
+name = "rig-api"
+version = "1.0.0"
+description = "Rig broker: inventory, reservation, health polling and quarantine for HIL test rigs"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.30.1",
+    "sqlalchemy==2.0.31",
+    "alembic==1.13.2",
+    "pydantic==2.8.2",
+    "pydantic-settings==2.3.4",
+    "httpx==0.27.0",
+    "prometheus-client==0.20.0",
+    "pyyaml==6.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.2.2",
+    "pytest-asyncio==0.23.7",
+    "ruff==0.5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["rig_api*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
