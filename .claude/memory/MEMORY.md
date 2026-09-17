@@ -1,0 +1,2 @@
+- [WSL/Docker environment](wsl-docker-environment.md) — WSL/Docker broken 2026-09-17, user fixes it; don't probe wsl.exe or docker until told
+- [HIL lab project](hil-lab-project.md) — Docker Compose HIL test-rig lab for Siemens interview prep; container-only builds; unverified until Docker is back
