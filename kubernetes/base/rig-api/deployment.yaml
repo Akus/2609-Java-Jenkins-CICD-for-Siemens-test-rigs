@@ -19,6 +19,7 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        runAsUser: 10001 # "rigapi" from rig-api/Dockerfile; runAsNonRoot needs a numeric uid to verify
         seccompProfile:
           type: RuntimeDefault
       containers:

@@ -96,9 +96,9 @@ To pick up newly built images (all tagged `latest`, so they're always re-pulled)
 - `sqlite-web` mounts the same `ReadWriteOnce` `rig-api-data` PVC as `rig-api`. With
   local-path-provisioner that only works if both pods land on the same node — there's no pod
   affinity set up to force that, so it may fail to schedule on a 2-node cluster.
-- Not yet deployed or smoke-tested against a real cluster (kustomize output is validated
-  locally — `kubectl kustomize` on both `base` and `overlays/home-lab` builds clean — but
-  nothing has been `kubectl apply`'d).
+- Deployed to the home lab (all pods Ready, every Prometheus target up except `cadvisor`,
+  which `monitoring/prometheus/prometheus.yml` still lists for compose), but the HIL pipeline
+  hasn't been run end-to-end on the cluster yet.
 - Resource requests/limits are sized for a 2×8GB Pi cluster with headroom to spare; revisit
   if you add more to the `extras` layer or run parallel Jenkins builds like the root
   README's demo suggests.
