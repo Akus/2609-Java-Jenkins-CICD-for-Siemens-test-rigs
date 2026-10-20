@@ -1,0 +1,23 @@
+name: image jenkins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only what's baked into the image; casc/ and pipelines/ are mounted/cloned at runtime.
+      - jenkins/Dockerfile
+      - jenkins/plugins.txt
+      - .github/workflows/image-jenkins.yml
+      - .github/workflows/build-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: 2609-jenkins
+      context: jenkins

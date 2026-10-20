@@ -1,0 +1,21 @@
+name: image jenkins-agent
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - jenkins/agent/**
+      - .github/workflows/image-jenkins-agent.yml
+      - .github/workflows/build-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: 2609-jenkins-agent
+      context: jenkins/agent

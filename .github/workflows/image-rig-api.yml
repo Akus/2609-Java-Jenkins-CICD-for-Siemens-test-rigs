@@ -1,0 +1,30 @@
+name: image rig-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - rig-api/**
+      - .github/workflows/image-rig-api.yml
+      - .github/workflows/build-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ruff + pytest via the Dockerfile's test stage; a red test never becomes an image.
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target test rig-api
+
+  image:
+    needs: test
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: 2609-rig-api
+      context: rig-api
+      target: runtime
