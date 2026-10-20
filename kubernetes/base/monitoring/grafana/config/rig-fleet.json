@@ -1,0 +1,258 @@
+{
+  "uid": "rig-fleet",
+  "title": "Test-rig fleet",
+  "tags": ["lab", "rigs", "jenkins"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "lab",
+        "label": "Lab",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(rig_api_rig_state, lab)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row", "title": "Fleet", "id": 100, "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 1, "type": "stat", "title": "Rigs",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "count(rig_api_rig_state{state=\"IDLE\", lab=~\"$lab\"})", "instant": true }],
+      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0 }, "overrides": [] }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Free (IDLE, unreserved)",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rig_api_rig_state{state=\"IDLE\", lab=~\"$lab\"} == 1 unless on (rig) (rig_api_reserved == 1 or rig_api_quarantined == 1)) or vector(0)", "instant": true }],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 3, "type": "stat", "title": "Reserved",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rig_api_reserved{lab=~\"$lab\"}) or vector(0)", "instant": true }],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null }, { "color": "blue", "value": 1 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 4, "type": "stat", "title": "Failing / unreachable",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rig_api_rig_state{state=~\"FAILING|UNREACHABLE\", lab=~\"$lab\"}) or vector(0)", "instant": true }],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Quarantined",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rig_api_quarantined{lab=~\"$lab\"}) or vector(0)", "instant": true }],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] }
+    },
+    {
+      "id": 6, "type": "stat", "title": "Jenkins queue",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "jenkins_queue_size_value or vector(0)", "instant": true }],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null }, { "color": "orange", "value": 3 } ] } }, "overrides": [] }
+    },
+
+    {
+      "id": 10, "type": "state-timeline", "title": "Rig state (as seen by the broker)",
+      "description": "IDLE → BUSY → IDLE is a test run; FLASHING is a deploy; FAILING/UNREACHABLE need attention.",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "legendFormat": "{{rig}}",
+        "expr": "sum by (rig) (\n  (rig_api_rig_state{state=\"UNKNOWN\", lab=~\"$lab\"} == 1) * 0\n  or (rig_api_rig_state{state=\"IDLE\", lab=~\"$lab\"} == 1) * 1\n  or (rig_api_rig_state{state=\"BUSY\", lab=~\"$lab\"} == 1) * 2\n  or (rig_api_rig_state{state=\"FLASHING\", lab=~\"$lab\"} == 1) * 3\n  or (rig_api_rig_state{state=\"FAILING\", lab=~\"$lab\"} == 1) * 4\n  or (rig_api_rig_state{state=\"UNREACHABLE\", lab=~\"$lab\"} == 1) * 5\n)"
+      }],
+      "options": { "mergeValues": true, "showValue": "auto", "alignValue": "center", "rowHeight": 0.8, "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [{
+            "type": "value",
+            "options": {
+              "0": { "text": "UNKNOWN", "color": "#6b7280", "index": 0 },
+              "1": { "text": "IDLE", "color": "#2f9e6f", "index": 1 },
+              "2": { "text": "BUSY", "color": "#3b82c4", "index": 2 },
+              "3": { "text": "FLASHING", "color": "#c98a1c", "index": 3 },
+              "4": { "text": "FAILING", "color": "#c9414a", "index": 4 },
+              "5": { "text": "UNREACHABLE", "color": "#7c3aed", "index": 5 }
+            }
+          }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#6b7280", "value": null }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11, "type": "table", "title": "Fleet status",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "State", "expr": "rig_api_rig_state{lab=~\"$lab\"} == 1", "instant": true, "format": "table" },
+        { "refId": "Reserved", "expr": "rig_api_reserved{lab=~\"$lab\"}", "instant": true, "format": "table" },
+        { "refId": "Quarantined", "expr": "rig_api_quarantined{lab=~\"$lab\"}", "instant": true, "format": "table" },
+        { "refId": "Firmware", "expr": "rig_info", "instant": true, "format": "table" }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "rig", "mode": "outer" } },
+        { "id": "organize", "options": {
+            "excludeByName": { "Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true, "Value #State": true, "lab 2": true, "lab 3": true, "lab 4": true, "__name__": true, "__name__ 1": true, "__name__ 2": true, "__name__ 3": true, "__name__ 4": true, "instance": true, "instance 1": true, "instance 2": true, "instance 3": true, "instance 4": true, "job": true, "job 1": true, "job 2": true, "job 3": true, "job 4": true, "Value #Firmware": true },
+            "renameByName": { "lab 1": "lab", "Value #Reserved": "reserved", "Value #Quarantined": "quarantined" },
+            "indexByName": { "rig": 0, "lab": 1, "state": 2, "firmware": 3, "reserved": 4, "quarantined": 5 }
+        } }
+      ],
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [{ "displayName": "rig" }] },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "state" }, "properties": [
+            { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+            { "id": "mappings", "value": [{ "type": "value", "options": {
+              "IDLE": { "color": "#2f9e6f", "index": 0 }, "BUSY": { "color": "#3b82c4", "index": 1 },
+              "FLASHING": { "color": "#c98a1c", "index": 2 }, "FAILING": { "color": "#c9414a", "index": 3 },
+              "UNREACHABLE": { "color": "#7c3aed", "index": 4 }, "UNKNOWN": { "color": "#6b7280", "index": 5 } } }] }
+          ] },
+          { "matcher": { "id": "byName", "options": "reserved" }, "properties": [
+            { "id": "mappings", "value": [{ "type": "value", "options": { "0": { "text": "–", "index": 0 }, "1": { "text": "yes", "index": 1 } } }] }
+          ] },
+          { "matcher": { "id": "byName", "options": "quarantined" }, "properties": [
+            { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+            { "id": "mappings", "value": [{ "type": "value", "options": { "0": { "text": "–", "color": "text", "index": 0 }, "1": { "text": "QUARANTINED", "color": "#c98a1c", "index": 1 } } }] }
+          ] }
+        ]
+      }
+    },
+
+    {
+      "id": 12, "type": "state-timeline", "title": "Reservations (who holds which rig)",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "rig_api_reserved{lab=~\"$lab\"}", "legendFormat": "{{rig}}" }],
+      "options": { "mergeValues": true, "showValue": "never", "rowHeight": 0.8, "legend": { "showLegend": false }, "tooltip": { "mode": "single" } },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [{ "type": "value", "options": { "0": { "text": "free", "color": "#d1d5db", "index": 0 }, "1": { "text": "reserved", "color": "#3b82c4", "index": 1 } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#d1d5db", "value": null }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Board temperature",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "rig_temperature_celsius{lab=~\"$lab\"}", "legendFormat": "{{rig}}" }],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius", "min": 30,
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "pointSize": 4, "showPoints": "never", "spanNulls": true,
+                      "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 65 }] }
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "type": "row", "title": "Health & pipeline", "id": 101, "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 }
+    },
+    {
+      "id": 20, "type": "timeseries", "title": "Broker poll errors / min",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (rig) (rate(rig_api_poll_errors_total{lab=~\"$lab\"}[5m])) * 60", "legendFormat": "{{rig}}" }],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] }
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "Flash attempts (ok vs failed, cumulative)",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rig_flash_total{result=\"ok\", lab=~\"$lab\"})", "legendFormat": "ok" },
+        { "refId": "B", "expr": "sum(rig_flash_total{result=\"failed\", lab=~\"$lab\"})", "legendFormat": "failed" }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0, "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "lineInterpolation": "stepAfter" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ok" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#2f9e6f" } }] },
+          { "matcher": { "id": "byName", "options": "failed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#c9414a" } }] }
+        ]
+      }
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "Jenkins executors & queue",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "jenkins_executor_in_use_value", "legendFormat": "executors busy" },
+        { "refId": "B", "expr": "jenkins_executor_count_value", "legendFormat": "executors total" },
+        { "refId": "C", "expr": "jenkins_queue_size_value", "legendFormat": "queued builds" }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "decimals": 0, "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never", "lineInterpolation": "stepAfter" } }, "overrides": [] }
+    },
+    {
+      "id": 23, "type": "bargauge", "title": "Last build duration per job",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "default_jenkins_builds_last_build_duration_milliseconds", "legendFormat": "{{jenkins_job}}", "instant": true }],
+      "options": { "orientation": "horizontal", "displayMode": "basic", "showUnfilled": true, "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0, "color": { "mode": "fixed", "fixedColor": "#3b82c4" } }, "overrides": [] }
+    },
+    {
+      "id": 24, "type": "table", "title": "Firing alerts",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "ALERTS{alertstate=\"firing\"}", "instant": true, "format": "table" }],
+      "transformations": [
+        { "id": "organize", "options": {
+            "excludeByName": { "Time": true, "Value": true, "__name__": true, "alertstate": true, "job": true, "instance": true, "site": true },
+            "indexByName": { "alertname": 0, "severity": 1, "rig": 2, "lab": 3 }
+        } }
+      ],
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" } } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "severity" }, "properties": [
+            { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+            { "id": "mappings", "value": [{ "type": "value", "options": {
+              "critical": { "color": "#c9414a", "index": 0 }, "warning": { "color": "#c98a1c", "index": 1 }, "info": { "color": "#3b82c4", "index": 2 } } }] }
+          ] }
+        ]
+      }
+    }
+  ]
+}

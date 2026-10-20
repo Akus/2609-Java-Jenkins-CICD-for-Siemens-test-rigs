@@ -1,0 +1,21 @@
+# Optional layer, mirroring docker-compose's `--profile extras` (sqlite-web + alertmanager).
+# Not referenced by ../kustomization.yaml by default; an overlay opts in with:
+#   resources:
+#     - ../../base
+#     - ../../base/extras
+#
+# cadvisor from the compose "extras" profile has no equivalent here on purpose: it reads
+# /var/lib/docker, which doesn't exist under containerd (see the 2608-k8s-home-lab cluster),
+# and kubelet already exposes the same container-level CPU/mem metrics natively – nothing to
+# add. sqlite-web mounts the same ReadWriteOnce rig-api-data PVC as rig-api; with
+# local-path-provisioner that only works if both pods land on the same node (no real
+# multi-attach), which is a big part of why this stays optional.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - alertmanager.yaml
+  - sqlite-web.yaml
+configMapGenerator:
+  - name: alertmanager-config
+    files:
+      - alertmanager.yml=config/alertmanager.yml

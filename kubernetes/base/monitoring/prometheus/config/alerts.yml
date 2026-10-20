@@ -1,0 +1,89 @@
+groups:
+  - name: rig-fleet
+    rules:
+      # Heartbeat lost: the rig's own metrics endpoint stopped answering.
+      - alert: RigDown
+        expr: up{job="rigs"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Rig {{ $labels.instance }} ({{ $labels.lab }}) is not responding"
+          description: "No scrape for 1 minute. Check VPN/network path to the lab, then power-cycle via PDU."
+
+      # Broker sees the rig as FAILING (bad flash, hardware fault, injected fault).
+      - alert: RigFailing
+        expr: rig_api_rig_state{state="FAILING"} == 1
+        for: 30s
+        labels: { severity: warning }
+        annotations:
+          summary: "Rig {{ $labels.rig }} ({{ $labels.lab }}) is FAILING"
+          description: "Rig reported FAILING for 30s. Try `rig-cli.sh reset {{ $labels.rig }}`; it will be auto-quarantined after repeated failures."
+
+      - alert: RigUnreachableByBroker
+        expr: rig_api_rig_state{state="UNREACHABLE"} == 1
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Broker cannot poll rig {{ $labels.rig }} ({{ $labels.lab }})"
+
+      - alert: RigQuarantined
+        expr: rig_api_quarantined == 1
+        labels: { severity: warning }
+        annotations:
+          summary: "Rig {{ $labels.rig }} ({{ $labels.lab }}) is quarantined"
+          description: "Removed from the pool. Inspect, fix, then `rig-cli.sh unquarantine {{ $labels.rig }}`."
+
+      # Reservation held far longer than a normal pipeline run → stuck job or forgotten manual hold.
+      - alert: RigStuckReserved
+        expr: rig_api_reservation_age_seconds > 1800
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Rig {{ $labels.rig }} reserved for > 30 min"
+          description: "The broker watchdog will force-release at TTL; check the owning Jenkins build first."
+
+      - alert: RigOverTemperature
+        expr: rig_api_rig_temperature_celsius > 65
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "Rig {{ $labels.rig }} temperature {{ $value | printf \"%.1f\" }} °C"
+
+      - alert: RigPoolExhausted
+        expr: |
+          (
+            sum by (lab) (
+              rig_api_rig_state{state="IDLE"} == 1
+              unless on (rig) (rig_api_reserved == 1 or rig_api_quarantined == 1)
+            )
+            or
+            count by (lab) (rig_api_rig_state{state="IDLE"}) * 0
+          ) == 0
+        for: 10m
+        labels: { severity: info }
+        annotations:
+          summary: "No free rig in lab {{ $labels.lab }} for 10 min"
+          description: "Pipelines are queueing on the lock. Consider adding capacity or shortening test suites."
+
+  - name: jenkins
+    rules:
+      - alert: JenkinsDown
+        expr: up{job="jenkins"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Jenkins controller is not responding"
+
+      - alert: JenkinsQueueBacklog
+        expr: jenkins_queue_size_value > 5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} builds waiting in the Jenkins queue"
+
+      - alert: JenkinsAgentOffline
+        expr: jenkins_nodes_offline_value > 0
+        for: 3m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} Jenkins agent(s) offline – lab agent lost?"

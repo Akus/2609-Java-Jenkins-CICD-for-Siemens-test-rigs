@@ -11,7 +11,9 @@ pipeline {
 
     environment {
         RIG_API_URL = 'http://rig-api:8000'
-        JENKINS_API = "${env.JENKINS_URL ?: 'http://jenkins:8080/'}"
+        // Not env.JENKINS_URL: that's the public root URL (localhost:8080 under compose, the
+        // Ingress hostname on k8s), which doesn't reach the controller from inside the agent.
+        JENKINS_API = 'http://jenkins:8080/'
     }
 
     stages {

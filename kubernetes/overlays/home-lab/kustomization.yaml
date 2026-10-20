@@ -1,0 +1,62 @@
+# Deploy target: the 2× Raspberry Pi 4B (8GB) cluster from ../../../2608-k8s-home-lab
+# (kubeadm, Calico, local-path-provisioner, MetalLB, ingress-nginx, all ARM64).
+#
+#   cp secrets.env.example secrets.env   # fill in real passwords, never committed
+#   kubectl apply -k kubernetes/overlays/home-lab
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ingress.yaml
+  # Uncomment to also deploy sqlite-web + alertmanager (see base/extras/kustomization.yaml
+  # for why they're opt-in):
+  # - ../../base/extras
+
+secretGenerator:
+  - name: lab-admin-credentials
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+
+# Public URLs match the Ingress hostnames: Jenkins uses its root URL for links in build
+# output/emails, Grafana for redirects and share links.
+patches:
+  - target:
+      kind: Deployment
+      name: jenkins
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: JENKINS_PUBLIC_URL
+          value: http://jenkins.home.lan/
+  - target:
+      kind: Deployment
+      name: grafana
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: GF_SERVER_ROOT_URL
+          value: http://grafana.home.lan/
+
+# Built and pushed by .github/workflows/image-*.yml (linux/amd64 + linux/arm64) on every push
+# to main that touches the image's folder. `latest` means imagePullPolicy Always, so
+# `kubectl -n hil-lab rollout restart deploy/<name>` picks up a new build; pin a `sha-<commit>`
+# tag here instead for repeatable deploys. prom/prometheus and grafana/grafana are pulled
+# straight from Docker Hub and already publish arm64 manifests, so they're not remapped here.
+images:
+  - name: jenkins-lab
+    newName: ghcr.io/akus/2609-jenkins
+    newTag: latest
+  - name: jenkins-agent-lab
+    newName: ghcr.io/akus/2609-jenkins-agent
+    newTag: latest
+  - name: rig-api
+    newName: ghcr.io/akus/2609-rig-api
+    newTag: latest
+  - name: rig-sim
+    newName: ghcr.io/akus/2609-rig-sim
+    newTag: latest

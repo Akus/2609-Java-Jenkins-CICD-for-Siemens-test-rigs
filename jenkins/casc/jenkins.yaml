@@ -1,5 +1,7 @@
 # Jenkins Configuration as Code – everything the lab needs, reproducible on every boot.
 # Secrets come from the container environment (docker-compose.yml / .env).
+# LAB_REPO_URL and JENKINS_PUBLIC_URL are unset under compose (-> bind-mounted file:///repo and
+# localhost); kubernetes/ sets them to the GitHub remote and the Ingress hostname.
 jenkins:
   systemMessage: "HIL test-rig lab – Jenkins configured by JCasC. Rigs are Lockable Resources; the rig broker is at ${RIG_API_URL}."
   numExecutors: 0                      # controller never builds – all work runs on lab agents
@@ -66,7 +68,7 @@ security:
 
 unclassified:
   location:
-    url: "http://localhost:8080/"
+    url: "${JENKINS_PUBLIC_URL:-http://localhost:8080/}"
     adminAddress: "lab-admin@example.invalid"
 
   # ---- Rig locks: one lockable resource per physical rig -------------------
@@ -111,8 +113,8 @@ jobs:
         displayName('Rig HIL pipeline (build → reserve → flash → HIL tests → release)')
         description('''Builds the rig firmware (rig-sim), reserves a free rig in the chosen lab
       via Lockable Resources + the rig broker API, flashes it, runs the JUnit HIL suite against it
-      and always releases the rig afterwards. Pipeline source: /repo/Jenkinsfile (bind-mounted repo,
-      committed content only).''')
+      and always releases the rig afterwards. Pipeline source: Jenkinsfile on main of ${LAB_REPO_URL:-file:///repo}
+      (committed content only).''')
         logRotator { numToKeep(30) }
         parameters {
           choiceParam('LAB', ['vienna', 'munich'], 'Which lab to reserve a rig in')
@@ -123,7 +125,7 @@ jobs:
           cpsScm {
             scm {
               git {
-                remote { url('file:///repo') }
+                remote { url('${LAB_REPO_URL:-file:///repo}') }
                 branch('*/main')
                 extensions {
                   cloneOptions { shallow(true); depth(1) }
@@ -147,7 +149,7 @@ jobs:
           cpsScm {
             scm {
               git {
-                remote { url('file:///repo') }
+                remote { url('${LAB_REPO_URL:-file:///repo}') }
                 branch('*/main')
               }
             }

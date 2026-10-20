@@ -26,12 +26,49 @@ design notes in [devops-lab-engineer-context.md](devops-lab-engineer-context.md)
 
 ## Prerequisites
 
-* WSL2 (Ubuntu) with Docker Engine **or** Docker Desktop with the WSL2 backend
-* `make`, `curl`, `jq` in WSL (`sudo apt install make curl jq`)
+Everything runs in containers — there's no Maven/JDK/Python to install on the host, only the
+tools below.
+
+* **WSL2** with an Ubuntu (or other systemd-capable) distro
+* **Docker**, either:
+  * Docker Engine installed *inside* the WSL distro (recommended — self-contained, doesn't
+    depend on a Windows-side GUI toggle), **or**
+  * Docker Desktop for Windows with WSL2 integration enabled for the distro
+* `make`, `curl`, `jq`, `git` in WSL (`sudo apt install make curl jq git`)
 * ~4 GB RAM free for the stack; first `make up` pulls/builds ~2 GB of images
 
 Clone (or open) the repo **inside WSL**. It works from `/mnt/e/...` too, but bind mounts are
 noticeably faster from the Linux filesystem (`~/repos/...`).
+
+<details>
+<summary>Installing Docker Engine directly in WSL (Ubuntu 24.04)</summary>
+
+If `docker` isn't on `PATH` inside the distro, or resolves to the Windows binary under
+`/mnt/c/...` (Docker Desktop's WSL integration isn't enabled/working), install Docker Engine
+natively — it only needs systemd, which WSL2 supports (`ps -p 1 -o comm=` should print
+`systemd`):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg jq
+
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable docker --now
+sudo usermod -aG docker "$USER"     # open a new shell (or `newgrp docker`) for this to take effect
+```
+
+Verify with `docker run --rm hello-world` and `docker compose version`.
+
+</details>
 
 ## Quick start
 
@@ -119,6 +156,7 @@ docker run --rm --network lab -v "$PWD/hil-tests:/src" -w /src maven:3.9.8-eclip
 | `monitoring/` | Prometheus scrape + alert rules, Alertmanager, Grafana datasource + dashboard |
 | `scripts/` | `rig-cli.sh`, `flash-tool.sh`, `smoke.sh` |
 | `docs/` | [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DESIGN-NOTES.md](docs/DESIGN-NOTES.md) (what's missing, modernization, mass IoT rollout) |
+| `kubernetes/` | Kustomize manifests to run this same stack on a cluster instead of `docker compose` – see [kubernetes/README.md](kubernetes/README.md) |
 
 ## Troubleshooting
 

@@ -1,0 +1,85 @@
+# Deliberately flaky (FAIL_RATE 0.15) – exercises the RigFailing/RigQuarantined alerts and
+# the watchdog pipeline's quarantine path. See docker-compose.yml's rig-munich-01 comment.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rig-munich-01
+  labels:
+    app.kubernetes.io/name: rig-munich-01
+    rig.lab: munich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rig-munich-01
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rig-munich-01
+        rig.lab: munich
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rig-sim
+          image: rig-sim
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: RIG_ID
+              value: rig-munich-01
+            - name: RIG_LAB
+              value: munich
+            - name: FAIL_RATE
+              value: "0.15"
+            - name: FLASH_SECONDS
+              value: "8"
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rig-munich-01
+  labels:
+    app.kubernetes.io/name: rig-munich-01
+    rig.lab: munich
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: rig-munich-01
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

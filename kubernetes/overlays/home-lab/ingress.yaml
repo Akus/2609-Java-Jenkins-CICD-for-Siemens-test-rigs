@@ -1,0 +1,76 @@
+# One Ingress per UI, all on ingress-nginx's MetalLB IP. Point *.home.lan at that IP
+# (`kubectl -n ingress-nginx get svc ingress-nginx-controller`) in the router's DNS or
+# /etc/hosts. Plain HTTP: LAN-only lab, no cert-manager on this cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jenkins
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 50m # artifact/plugin uploads
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: jenkins.home.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jenkins
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: grafana.home.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: prometheus.home.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rig-api
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: rig-api.home.lan
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rig-api
+                port:
+                  name: http

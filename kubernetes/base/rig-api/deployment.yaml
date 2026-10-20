@@ -1,0 +1,88 @@
+# Translates docker-compose's `rig-api` service (FastAPI broker, target: runtime).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rig-api
+  labels:
+    app.kubernetes.io/name: rig-api
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single ReadWriteOnce SQLite volume
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rig-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rig-api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rig-api
+          image: rig-api
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              value: sqlite:////data/rigs.db
+            - name: RIGS_INVENTORY
+              value: /app/rigs.yaml
+            - name: POLL_INTERVAL_S
+              value: "5"
+            - name: RESERVATION_DEFAULT_TTL_S
+              value: "1800"
+            - name: QUARANTINE_AFTER_FAILURES
+              value: "3"
+            - name: LOG_LEVEL
+              value: info
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: rigs-config
+              mountPath: /app/rigs.yaml
+              subPath: rigs.yaml
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rig-api-data
+        - name: rigs-config
+          configMap:
+            name: rigs-inventory
+        - name: tmp
+          emptyDir: {}

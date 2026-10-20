@@ -1,0 +1,49 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    site: lab-local
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]   # only present with `--profile extras`; harmless otherwise
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Jenkins metrics plugin – build counts/durations, queue length, executor usage.
+  - job_name: jenkins
+    metrics_path: /prometheus/
+    static_configs:
+      - targets: ["jenkins:8080"]
+
+  # Rig broker – the "fleet view": state per rig as observed by the poller, reservations, quarantine.
+  - job_name: rig-api
+    static_configs:
+      - targets: ["rig-api:8000"]
+
+  # Each rig exposes its own metrics too (in a real lab: a tiny agent on/next to the board).
+  # `up` on this job is the heartbeat – RigDown alert fires when it drops.
+  - job_name: rigs
+    honor_labels: true      # rig exposes rig/lab itself; the static lab label below only decorates `up`
+    static_configs:
+      - targets: ["rig-vienna-01:8080", "rig-vienna-02:8080"]
+        labels: { lab: vienna }
+      - targets: ["rig-munich-01:8080"]
+        labels: { lab: munich }
+    relabel_configs:
+      # `up{rig="rig-vienna-01"}` so RigDown lines up with the broker's rig label.
+      - source_labels: [__address__]
+        regex: '([^:]+)(?::\d+)?'
+        target_label: rig
+
+  # Container CPU/mem (extras profile).
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]

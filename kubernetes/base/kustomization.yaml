@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hil-lab
+
+resources:
+  - namespace.yaml
+  - jenkins/pvc.yaml
+  - jenkins/deployment.yaml
+  - jenkins/service.yaml
+  - jenkins-agent/pvc.yaml
+  - jenkins-agent/deployment.yaml
+  - rig-api/pvc.yaml
+  - rig-api/deployment.yaml
+  - rig-api/service.yaml
+  - rig-sim/rig-vienna-01.yaml
+  - rig-sim/rig-vienna-02.yaml
+  - rig-sim/rig-munich-01.yaml
+  - monitoring/prometheus/pvc.yaml
+  - monitoring/prometheus/deployment.yaml
+  - monitoring/prometheus/service.yaml
+  - monitoring/grafana/pvc.yaml
+  - monitoring/grafana/deployment.yaml
+  - monitoring/grafana/service.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: hil-lab
+    includeSelectors: true
+
+# These read tracked *copies* of jenkins/casc/jenkins.yaml, rig-api/rigs.yaml and
+# monitoring/**, not the originals: kustomize's configMapGenerator refuses `files:` sources
+# outside its own directory tree, a restriction `kubectl apply -k` has no flag to relax (and
+# symlinks don't get around it either - it checks the resolved real path). Run
+# `kubernetes/sync-config.sh` after editing any of the originals, then re-run
+# `kubectl kustomize kubernetes/base` to confirm there's no drift before applying.
+configMapGenerator:
+  - name: jenkins-casc
+    files:
+      - jenkins.yaml=jenkins/casc/jenkins.yaml
+  - name: rigs-inventory
+    files:
+      - rigs.yaml=rig-api/config/rigs.yaml
+  - name: prometheus-config
+    files:
+      - prometheus.yml=monitoring/prometheus/config/prometheus.yml
+      - alerts.yml=monitoring/prometheus/config/alerts.yml
+  - name: grafana-provisioning
+    files:
+      - datasource-prometheus.yml=monitoring/grafana/config/datasource-prometheus.yml
+      - dashboards-provider.yml=monitoring/grafana/config/dashboards-provider.yml
+      - rig-fleet.json=monitoring/grafana/config/rig-fleet.json
+
+# jenkins-lab / jenkins-agent-lab / rig-api / rig-sim above are placeholder names – they're
+# not pullable images. Every overlay MUST remap them to a real registry via its own
+# `images:` block (see overlays/home-lab/kustomization.yaml).

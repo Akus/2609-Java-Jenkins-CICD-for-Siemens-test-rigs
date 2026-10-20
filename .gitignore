@@ -1,4 +1,5 @@
 .env
+kubernetes/overlays/*/secrets.env
 
 # Java
 target/

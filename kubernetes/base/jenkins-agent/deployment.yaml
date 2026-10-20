@@ -1,0 +1,64 @@
+# Translates docker-compose's `jenkins-agent` service. No Service object – it's an outbound
+# JNLP-over-websocket client (JENKINS_WEB_SOCKET=true in the image), it only calls out to the
+# `jenkins` Service, nothing calls in.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins-agent
+  labels:
+    app.kubernetes.io/name: jenkins-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jenkins-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jenkins-agent
+    spec:
+      containers:
+        - name: jenkins-agent
+          image: jenkins-agent-lab
+          env:
+            - name: JENKINS_URL
+              value: http://jenkins:8080
+            - name: JENKINS_AGENT_NAME
+              value: lab-agent
+            - name: RIG_API_URL
+              value: http://rig-api:8000
+            - name: JENKINS_ADMIN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lab-admin-credentials
+                  key: JENKINS_ADMIN_ID
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lab-admin-credentials
+                  key: JENKINS_ADMIN_PASSWORD
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: agent-workdir
+              mountPath: /home/jenkins/agent
+            - name: maven-repo
+              mountPath: /home/jenkins/.m2
+      volumes:
+        - name: agent-workdir
+          persistentVolumeClaim:
+            claimName: agent-workdir
+        - name: maven-repo
+          persistentVolumeClaim:
+            claimName: maven-repo

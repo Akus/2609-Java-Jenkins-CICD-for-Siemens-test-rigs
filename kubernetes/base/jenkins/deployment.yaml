@@ -1,0 +1,92 @@
+# Translates docker-compose's `jenkins` service. Image is built from ./jenkins/Dockerfile –
+# see kubernetes/README.md for the build/push step; the overlay's `images:` remaps this
+# placeholder name to the real registry path.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkins
+  labels:
+    app.kubernetes.io/name: jenkins
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # single ReadWriteOnce PVC – never run two controllers against it
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jenkins
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: jenkins-lab
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: jnlp
+              containerPort: 50000
+          env:
+            - name: CASC_JENKINS_CONFIG
+              value: /var/jenkins_home/casc
+            - name: JAVA_OPTS
+              value: >-
+                -Djenkins.install.runSetupWizard=false
+                -Dhudson.model.DirectoryBrowserSupport.CSP=
+            - name: RIG_API_URL
+              value: http://rig-api:8000
+            # JCasC points both jobs at this instead of compose's bind-mounted file:///repo, so
+            # every build (controller's Jenkinsfile read and the agent's checkout) fetches main fresh.
+            - name: LAB_REPO_URL
+              value: https://github.com/Akus/2609-Java-Jenkins-CICD-for-Siemens-test-rigs.git
+            - name: JENKINS_ADMIN_ID
+              valueFrom:
+                secretKeyRef:
+                  name: lab-admin-credentials
+                  key: JENKINS_ADMIN_ID
+            - name: JENKINS_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lab-admin-credentials
+                  key: JENKINS_ADMIN_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 20
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+            - name: casc
+              mountPath: /var/jenkins_home/casc
+              readOnly: true
+      volumes:
+        - name: jenkins-home
+          persistentVolumeClaim:
+            claimName: jenkins-home
+        - name: casc
+          configMap:
+            name: jenkins-casc

@@ -1,0 +1,19 @@
+# ClusterIP: the overlay's Ingress (ingress-nginx behind MetalLB) exposes the UI by hostname.
+# The agent reaches the controller in-cluster as http://jenkins:8080 (websocket, so jnlp is unused).
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+  labels:
+    app.kubernetes.io/name: jenkins
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: jenkins
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: jnlp
+      port: 50000
+      targetPort: jnlp
