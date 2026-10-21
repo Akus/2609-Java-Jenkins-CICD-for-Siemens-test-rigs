@@ -1,0 +1,16 @@
+# One wildcard cert for every UI in ingress.yaml, issued by the Let's Encrypt ClusterIssuers in
+# ../../../../2608-k8s-home-lab/clusters/home-lab/cert-manager/ (DNS-01 on Route53, so the
+# cluster stays LAN-only). Only *.lab.akos-demo.com shows up in Certificate Transparency logs,
+# not each hostname. Switch issuerRef to letsencrypt-prod once staging issues cleanly; delete
+# the lab-wildcard-tls Secret after switching so the prod cert is issued right away.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: lab-wildcard
+spec:
+  secretName: lab-wildcard-tls
+  dnsNames:
+    - "*.lab.akos-demo.com"
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer

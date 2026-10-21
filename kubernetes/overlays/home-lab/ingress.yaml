@@ -1,6 +1,8 @@
-# One Ingress per UI, all on ingress-nginx's MetalLB IP. Point *.home.lan at that IP
-# (`kubectl -n ingress-nginx get svc ingress-nginx-controller`) in the router's DNS or
-# /etc/hosts. Plain HTTP: LAN-only lab, no cert-manager on this cluster.
+# One Ingress per UI, all on ingress-nginx's MetalLB IP. *.lab.akos-demo.com is a public
+# Route53 A record pointing at that IP (`kubectl -n ingress-nginx get svc
+# ingress-nginx-controller`), so it only resolves to something reachable from the LAN.
+# HTTPS with the Let's Encrypt wildcard cert from certificate.yaml; ingress-nginx redirects
+# HTTP to HTTPS once a tls: block is set.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,8 +11,11 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-body-size: 50m # artifact/plugin uploads
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts: [jenkins.lab.akos-demo.com]
+      secretName: lab-wildcard-tls
   rules:
-    - host: jenkins.home.lan
+    - host: jenkins.lab.akos-demo.com
       http:
         paths:
           - path: /
@@ -27,8 +32,11 @@ metadata:
   name: grafana
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts: [grafana.lab.akos-demo.com]
+      secretName: lab-wildcard-tls
   rules:
-    - host: grafana.home.lan
+    - host: grafana.lab.akos-demo.com
       http:
         paths:
           - path: /
@@ -45,8 +53,11 @@ metadata:
   name: prometheus
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts: [prometheus.lab.akos-demo.com]
+      secretName: lab-wildcard-tls
   rules:
-    - host: prometheus.home.lan
+    - host: prometheus.lab.akos-demo.com
       http:
         paths:
           - path: /
@@ -63,8 +74,11 @@ metadata:
   name: rig-api
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts: [rig-api.lab.akos-demo.com]
+      secretName: lab-wildcard-tls
   rules:
-    - host: rig-api.home.lan
+    - host: rig-api.lab.akos-demo.com
       http:
         paths:
           - path: /

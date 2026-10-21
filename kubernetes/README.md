@@ -55,14 +55,16 @@ Alertmanager (see `base/extras/kustomization.yaml` for why they're opt-in, not d
 
 Everything is reached through ingress-nginx's MetalLB IP
 (`kubectl -n ingress-nginx get svc ingress-nginx-controller`, `192.168.1.240` on the home lab)
-by hostname — point these at it in the router's DNS or `/etc/hosts`:
+by hostname. `*.lab.akos-demo.com` is a public Route53 A record pointing at that IP, and HTTPS
+uses a Let's Encrypt wildcard cert (`overlays/home-lab/certificate.yaml`; cluster side in
+`2608-k8s-home-lab/HTTPS-CERTS.md`):
 
 | URL | |
 |---|---|
-| http://jenkins.home.lan | Jenkins (login from `secrets.env`) |
-| http://grafana.home.lan | Grafana, rig fleet dashboard (anonymous view) |
-| http://prometheus.home.lan | Prometheus |
-| http://rig-api.home.lan/docs | rig broker API |
+| https://jenkins.lab.akos-demo.com | Jenkins (login from `secrets.env`) |
+| https://grafana.lab.akos-demo.com | Grafana, rig fleet dashboard (anonymous view) |
+| https://prometheus.lab.akos-demo.com | Prometheus |
+| https://rig-api.lab.akos-demo.com/docs | rig broker API |
 
 To pick up newly built images (all tagged `latest`, so they're always re-pulled):
 `kubectl -n hil-lab rollout restart deploy`.

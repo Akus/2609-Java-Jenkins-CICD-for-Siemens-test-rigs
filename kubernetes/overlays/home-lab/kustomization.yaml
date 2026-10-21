@@ -13,6 +13,7 @@ namespace: hil-lab
 resources:
   - ../../base
   - ingress.yaml
+  - certificate.yaml
   # Uncomment to also deploy sqlite-web + alertmanager (see base/extras/kustomization.yaml
   # for why they're opt-in):
   # - ../../base/extras
@@ -35,7 +36,7 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: JENKINS_PUBLIC_URL
-          value: http://jenkins.home.lan/
+          value: https://jenkins.lab.akos-demo.com/
   - target:
       kind: Deployment
       name: grafana
@@ -44,7 +45,7 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value:
           name: GF_SERVER_ROOT_URL
-          value: http://grafana.home.lan/
+          value: https://grafana.lab.akos-demo.com/
 
 # Built and pushed by .github/workflows/image-*.yml (linux/amd64 + linux/arm64) on every push
 # to main that touches the image's folder. `latest` means imagePullPolicy Always, so
